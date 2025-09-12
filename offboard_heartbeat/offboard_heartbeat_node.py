@@ -8,6 +8,8 @@ from px4_msgs.msg import (
     VehicleCommand,
     VehicleStatus,
 )
+import argparse
+import sys
 
 
 class OffboardHeartBeat(Node):
@@ -26,6 +28,12 @@ class OffboardHeartBeat(Node):
 
         # Namespace logic
         self.namespace = namespace.strip()
+        if self.namespace:
+            self.get_logger().info(f"Using namespace: '{self.namespace}'")
+            print(f"OffboardHeartBeat: Using namespace '{self.namespace}'")
+        else:
+            self.get_logger().info("No namespace specified, using default topics")
+            print("OffboardHeartBeat: No namespace specified, using default topics")
 
         def ns_topic(topic: str) -> str:
             if self.namespace:
@@ -108,17 +116,19 @@ class OffboardHeartBeat(Node):
 
 
 def main(args=None) -> None:
-    import argparse
 
+    # Parse only known arguments to allow ROS arguments to pass through
     parser = argparse.ArgumentParser(description="Offboard Heartbeat Node")
     parser.add_argument(
         "--namespace", type=str, default="", help="Namespace for topics"
     )
-    args = parser.parse_args()
+    known_args, unknown_args = parser.parse_known_args()
 
-    print(f"Starting offboard control node... Namespace: '{args.namespace}'")
-    rclpy.init(args=None)
-    offboard_control = OffboardHeartBeat(namespace=args.namespace)
+    print(f"Starting offboard control node... Namespace: '{known_args.namespace}'")
+
+    # Initialize ROS with all arguments (including unknown ones for ROS)
+    rclpy.init(args=sys.argv[1:])
+    offboard_control = OffboardHeartBeat(namespace=known_args.namespace)
     rclpy.spin(offboard_control)
     offboard_control.destroy_node()
     rclpy.shutdown()
