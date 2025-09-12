@@ -13,7 +13,7 @@ from px4_msgs.msg import (
 class OffboardHeartBeat(Node):
     """Node to keep sending offboard cmd to keep it there."""
 
-    def __init__(self) -> None:
+    def __init__(self, namespace: str = "") -> None:
         super().__init__("offboard_heartbeat")
 
         # Configure QoS profile for publishing and subscribing
@@ -24,18 +24,26 @@ class OffboardHeartBeat(Node):
             depth=1,
         )
 
+        # Namespace logic
+        self.namespace = namespace.strip()
+
+        def ns_topic(topic: str) -> str:
+            if self.namespace:
+                return f"/{self.namespace}{topic}"
+            return topic
+
         # --- Publisher ---
         self.offboard_control_mode_publisher = self.create_publisher(
-            OffboardControlMode, "/fmu/in/offboard_control_mode", qos_profile
+            OffboardControlMode, ns_topic("/fmu/in/offboard_control_mode"), qos_profile
         )
         self.vehicle_command_publisher = self.create_publisher(
-            VehicleCommand, "/fmu/in/vehicle_command", qos_profile
+            VehicleCommand, ns_topic("/fmu/in/vehicle_command"), qos_profile
         )
 
         # subscribers
         self.vehicle_status_subscriber = self.create_subscription(
             VehicleStatus,
-            "/fmu/out/vehicle_status",
+            ns_topic("/fmu/out/vehicle_status"),
             self.vehicle_status_callback,
             qos_profile,
         )
@@ -100,9 +108,17 @@ class OffboardHeartBeat(Node):
 
 
 def main(args=None) -> None:
-    print("Starting offboard control node...")
-    rclpy.init(args=args)
-    offboard_control = OffboardHeartBeat()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Offboard Heartbeat Node")
+    parser.add_argument(
+        "--namespace", type=str, default="", help="Namespace for topics"
+    )
+    args = parser.parse_args()
+
+    print(f"Starting offboard control node... Namespace: '{args.namespace}'")
+    rclpy.init(args=None)
+    offboard_control = OffboardHeartBeat(namespace=args.namespace)
     rclpy.spin(offboard_control)
     offboard_control.destroy_node()
     rclpy.shutdown()
